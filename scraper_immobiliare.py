@@ -64,12 +64,10 @@ def get_ids():
         browser.get(start_url.format(page_id))
         if "404 Not Found" in browser.title:
             break
-        annunci_list = browser.find_element_by_class_name("annunci-list")
-        items = annunci_list.find_elements_by_tag_name("li")
-        for item in items:
-            if (data_id := item.get_attribute('data-id')) is not None:  # walrus operator (:3=
-                title = item.find_element_by_xpath(".//p[@class='titolo text-primary']").text
-                ads_df = ads_df.append({'DATA-ID': data_id, 'TITOLO': title}, ignore_index=True)
+        links = browser.find_elements_by_class_name("in-card__title")
+        titles = [elem.get_attribute('title') for elem in links]
+        urls = [elem.get_attribute('href') for elem in links]
+        ads_df = ads_df.append({'url': urls, 'titolo': titles}, ignore_index=True)
         page_id += 1
         print("\r", end="")
     print("\nFound {} ads".format(len(ads_df)))
@@ -110,7 +108,7 @@ def get_ads(ids_file, checkpoint=100):
 # driver options
 user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
 options = webdriver.ChromeOptions()
-options.add_argument('headless')
+# options.add_argument('headless')
 options.add_argument(f'user-agent={user_agent}')
 
 # create a new driver
@@ -124,4 +122,4 @@ ad_url = 'https://www.immobiliare.it/annunci/{}'
 if __name__ == "__main__":
     # scrape_ad("https://www.immobiliare.it/annunci/79095919/")
     ids_file = get_ids()
-    get_ads(ids_file)
+    # get_ads(ids_file)
