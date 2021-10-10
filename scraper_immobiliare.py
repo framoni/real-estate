@@ -16,17 +16,17 @@ def scrape_ad(url):
     browser.get(url)
     dict_list = []
     try:
-        description = browser.find_element_by_xpath("//div[contains(@class, 'description-text')]").text
+        description = browser.find_element_by_xpath("//div[contains(@class, 'readAllContainer')]").text
     except se.NoSuchElementException:
         description = ""
     try:
-        address = browser.find_element_by_xpath("//span[contains(@class, 'im-address')]").get_attribute("innerText")
-        address = address.encode("ascii", "replace").decode("utf-8")
-        address = address.replace("\n", " ").replace("?", " ")
-        address = re.sub("\s+", " ", address).strip()
+        address = browser.find_elements_by_xpath("//span[contains(@class, 'im-location')]")
+        address = list(set([it.text for it in address]))
+        address = " ".join(address)
     except se.NoSuchElementException:
         address = None
     try:
+        # continue from here
         coord = browser.find_element_by_xpath("//div[contains(@class, 'image-placeholder')]").get_attribute(
                                                                                               'data-background-image')
         coord = re.findall("\d+\.\d+", coord)[:2]
@@ -62,17 +62,17 @@ def get_ids():
     while True:
         print("Fetching from page {}".format(page_id), end="")
         browser.get(start_url.format(page_id))
-        if "404 Not Found" in browser.title:
-            break
         links = browser.find_elements_by_class_name("in-card__title")
+        if len(links) == 0:
+            break
         titles = [elem.get_attribute('title') for elem in links]
         urls = [elem.get_attribute('href') for elem in links]
-        ads_df = ads_df.append({'url': urls, 'titolo': titles}, ignore_index=True)
+        ads_df = ads_df.append(pd.DataFrame({'url': urls, 'titolo': titles}), ignore_index=True)
         page_id += 1
         print("\r", end="")
     print("\nFound {} ads".format(len(ads_df)))
     output_file = 'immobiliare_ids_{}.csv'.format(dt.today().strftime('%Y-%m-%d'))
-    ads_df.to_csv(output_file)
+    ads_df.to_csv(output_file, index=False)
     print("Saved ids to {}".format(output_file))
     return output_file
 
@@ -92,8 +92,7 @@ def get_ads(ids_file, checkpoint=100):
     for it, row in tqdm(ads_df.iterrows(), total=len(ads_df)):
         if it % checkpoint == 0 and it > 0:
             save_ckpt(lots)
-        ad_url_it = ad_url.format(row['DATA-ID'])
-        lot = scrape_ad(ad_url_it)
+        lot = scrape_ad(row['url'])
         lots.append(lot)
     output_file = 'immobiliare_ads_{}.csv'.format(dt.today().strftime('%Y-%m-%d'))
     lots_df = save_ckpt(lots)
@@ -117,9 +116,8 @@ browser.implicitly_wait(5)
 
 # urls to be scraped
 start_url = 'https://www.immobiliare.it/vendita-case/milano/?pag={}'
-ad_url = 'https://www.immobiliare.it/annunci/{}'
 
 if __name__ == "__main__":
     # scrape_ad("https://www.immobiliare.it/annunci/79095919/")
-    ids_file = get_ids()
-    # get_ads(ids_file)
+    # ids_file = get_ids()
+    get_ads(ids_file)
