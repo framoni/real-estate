@@ -1,4 +1,5 @@
 from datetime import datetime as dt
+import json
 import pandas as pd
 import re
 from selenium import webdriver
@@ -26,20 +27,21 @@ def scrape_ad(url):
     except se.NoSuchElementException:
         address = None
     try:
-        # continue from here
-        coord = browser.find_element_by_xpath("//div[contains(@class, 'image-placeholder')]").get_attribute(
-                                                                                              'data-background-image')
-        coord = re.findall("\d+\.\d+", coord)[:2]
+        string = browser.find_element_by_xpath("//nd-map").get_attribute('innerHTML')
+        regex = re.compile('{"lat":.+,"lng":.+},')
+        coord = re.search(regex, string)[0][:-1]
+        coord = json.loads(coord).values()
     except se.NoSuchElementException:
         coord = [None, None]
-    dict_list.append("DESCRIZIONE")
+    dict_list.append("descrizione")
     dict_list.append(description)
-    dict_list.append("INDIRIZZO")
+    dict_list.append("indirizzo")
     dict_list.append(address)
-    dict_list.append("LAT")
+    dict_list.append("lat")
     dict_list.append(coord[0])
-    dict_list.append("LONG")
+    dict_list.append("long")
     dict_list.append(coord[1])
+    # continue from here
     desc_list = browser.find_elements_by_tag_name("dl")
     for desc in desc_list:
         children = desc.find_elements_by_xpath(".//*")
