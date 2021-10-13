@@ -1,5 +1,6 @@
 from datetime import datetime as dt
 import json
+import os
 import pandas as pd
 import re
 from selenium import webdriver
@@ -8,8 +9,9 @@ from tqdm import tqdm
 
 # scrape agency and services around the place
 
+
 def list_to_dict(input_list):
-    output_dict = {input_list[i]: input_list[i + 1] for i in range(0, len(input_list), 2)}
+    output_dict = {input_list[i].lower(): input_list[i+1] for i in range(0, len(input_list), 2)}
     return output_dict
 
 
@@ -30,7 +32,7 @@ def scrape_ad(url):
         string = browser.find_element_by_xpath("//nd-map").get_attribute('innerHTML')
         regex = re.compile('{"lat":.+,"lng":.+},')
         coord = re.search(regex, string)[0][:-1]
-        coord = json.loads(coord).values()
+        coord = list(json.loads(coord).values())
     except se.NoSuchElementException:
         coord = [None, None]
     dict_list.append("descrizione")
@@ -48,10 +50,6 @@ def scrape_ad(url):
         for child in children:
             if child.tag_name in ['dt', 'dd']:
                 dict_list.append(child.text)
-    items = browser.find_elements_by_xpath('.//div[h3/text() = "Caratteristiche"]/div/span')
-    char = ";".join([item.text for item in items])
-    dict_list.append("CARATTERISTICHE")
-    dict_list.append(char)
     return list_to_dict(dict_list)
 
 
@@ -100,7 +98,7 @@ def get_ads(ids_file, checkpoint=100):
     lots_df = save_ckpt(lots)
     ads_df = ads_df.merge(lots_df, right_index=True, left_index=True)
     ads_df.to_csv(output_file)
-    # os.remove("immobiliare_ads_ckpt.csv")
+    os.remove("immobiliare_ads_ckpt.csv")
     # os.remove(ids_file) REMOVE IDS?
     # close the driver
     browser.quit()
