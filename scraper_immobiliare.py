@@ -9,6 +9,25 @@ from tqdm import tqdm
 
 # scrape agency and services around the place
 
+DF_NAME = 'immobiliare_ads.csv'
+
+
+def is_duplicate(prev_ads_df, lot):
+    match_df = prev_ads_df[prev_ads_df['url'] == lot['url']]
+    if len(match_df) > 0:
+        if match_df.iloc[0]['titolo'] == lot['titolo']:
+            try:
+                if match_df.iloc[0]['prezzo'] == lot['prezzo']:
+                    return True
+            except KeyError:
+                return False
+        else:
+            id = lot['url'].replace('https://www.immobiliare.it/annunci/', '').replace('/', '')
+            match_df = match_df.append(lot, ignore_index=True)
+            match_df.to_json('{}.json'.format(id), lines=True, orient='records')
+            print('Reconciliation error! Logged to {}.json'.format(id))
+    return False
+
 
 def list_to_dict(input_list):
     output_dict = {input_list[i].lower(): input_list[i+1] for i in range(0, len(input_list), 2)}
@@ -54,9 +73,10 @@ def scrape_ad(url):
 
 
 def get_ids():
-    # set with unique ad ids
+    if not(os.path.exists(DF_NAME)):
+        print('{} does not exist. Quitting.'.format(DF_NAME))
+        return
     ads_df = pd.DataFrame()
-    # page id
     page_id = 1
     print("Retrieving ads list...")
     while True:
@@ -71,21 +91,24 @@ def get_ids():
         page_id += 1
         print("\r", end="")
     print("\nFound {} ads".format(len(ads_df)))
-    output_file = 'immobiliare_ids_{}.csv'.format(dt.today().strftime('%Y-%m-%d'))
-    ads_df.to_csv(output_file, index=False)
-    print("Saved ids to {}".format(output_file))
-    return output_file
+    # output_file = 'immobiliare_ids_{}.csv'.format(dt.today().strftime('%Y-%m-%d'))
+    # ads_df.to_csv(output_file, index=False)
+    # print("Saved ids to {}".format(output_file))
+    return ads_df
 
 
 def save_ckpt(lots):
     lots_df = pd.DataFrame(lots)
-    lots_df.to_csv("immobiliare_ads_ckpt.csv")
-    return lots_df
+    lots_df.to_csv("immobiliare_ads_ckpt.csv", index=False)
+    return
 
 
-def get_ads(ids_file, checkpoint=100):
-    ads_df = pd.read_csv(ids_file)
-    print("Loaded ids from {}".format(ids_file))
+def get_ads(ads_df, date, checkpoint=100):
+    output_file = 'immobiliare_ads_{}.csv'.format(date)
+    prev_ads_df = pd.read_csv(DF_NAME)
+    ads_df = pd.read_csv(ads_df)
+    # ads_df = pd.read_csv(ids_file)
+    # print("Loaded ids from {}".format(ids_file))
     # lots dictionaries
     lots = []
     print("Scraping ads...")
@@ -93,21 +116,27 @@ def get_ads(ids_file, checkpoint=100):
         if it % checkpoint == 0 and it > 0:
             save_ckpt(lots)
         lot = scrape_ad(row['url'])
-        lots.append(lot)
-    output_file = 'immobiliare_ads_{}.csv'.format(dt.today().strftime('%Y-%m-%d'))
-    lots_df = save_ckpt(lots)
-    ads_df = ads_df.merge(lots_df, right_index=True, left_index=True)
-    ads_df.to_csv(output_file)
+        lot['url'] = row['url']
+        lot['titolo'] = row['titolo']
+        lot['data'] = date
+        if is_duplicate(prev_ads_df, lot):
+            continue
+        else:
+            lots.append(lot)
+    save_ckpt(lots)
+    ads_df = pd.DataFrame(lots)
+    # ads_df = ads_df.merge(lots_df, right_index=True, left_index=True)
+    ads_df.to_csv(output_file, index=False)
+    ads_df.to_csv(DF_NAME, index=False)
     os.remove("immobiliare_ads_ckpt.csv")
     # os.remove(ids_file) REMOVE IDS?
-    # close the driver
     browser.quit()
 
 
 # driver options
 user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
 options = webdriver.ChromeOptions()
-# options.add_argument('headless')
+options.add_argument('headless')
 options.add_argument(f'user-agent={user_agent}')
 
 # create a new driver
@@ -118,6 +147,7 @@ browser.implicitly_wait(5)
 start_url = 'https://www.immobiliare.it/vendita-case/milano/?pag={}'
 
 if __name__ == "__main__":
-    # scrape_ad("https://www.immobiliare.it/annunci/79095919/")
+    date = dt.today().strftime('%Y-%m-%d')
     # ids_file = get_ids()
-    get_ads(ids_file)
+    ids_file = 'immobiliare_ids_2021-10-10.csv'
+    get_ads(ids_file, date)
