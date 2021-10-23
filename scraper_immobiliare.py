@@ -13,20 +13,14 @@ DF_NAME = 'immobiliare_ads.csv'
 
 
 def is_duplicate(prev_ads_df, lot):
-    match_df = prev_ads_df[prev_ads_df['url'] == lot['url']]
+    # future: use address, area, floor
+    match_df = prev_ads_df[(prev_ads_df['titolo'] == lot['titolo']) | (prev_ads_df['descrizione'] == lot['descrizione'])]
     if len(match_df) > 0:
-        if match_df.iloc[0]['titolo'] == lot['titolo']:
-            try:
-                if match_df.iloc[0]['prezzo'] == lot['prezzo']:
-                    return True
-            except KeyError:
-                return False
-        else:
-            id = lot['url'].replace('https://www.immobiliare.it/annunci/', '').replace('/', '')
-            match_df = match_df.append(lot, ignore_index=True)
-            match_df.to_json('{}.json'.format(id), lines=True, orient='records')
-            print('Reconciliation error! Logged to {}.json'.format(id))
-    return False
+        if match_df.iloc[0]['prezzo'] == lot['prezzo']:
+            print('Found duplicate')
+            return True
+    else:
+        return False
 
 
 def list_to_dict(input_list):
@@ -101,6 +95,8 @@ def get_ads(ads_df, date):
     print("Scraping ads...")
     for it, row in tqdm(ads_df.iterrows(), total=len(ads_df)):
         lot = scrape_ad(row['url'])
+        if 'prezzo' not in lot.keys():
+            continue
         lot['url'] = row['url']
         lot['titolo'] = row['titolo']
         lot['data'] = date
