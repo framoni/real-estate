@@ -91,30 +91,15 @@ def get_ids():
         page_id += 1
         print("\r", end="")
     print("\nFound {} ads".format(len(ads_df)))
-    # output_file = 'immobiliare_ids_{}.csv'.format(dt.today().strftime('%Y-%m-%d'))
-    # ads_df.to_csv(output_file, index=False)
-    # print("Saved ids to {}".format(output_file))
     return ads_df
 
 
-def save_ckpt(lots):
-    lots_df = pd.DataFrame(lots)
-    lots_df.to_csv("immobiliare_ads_ckpt.csv", index=False)
-    return
-
-
-def get_ads(ads_df, date, checkpoint=100):
+def get_ads(ads_df, date):
     output_file = 'immobiliare_ads_{}.csv'.format(date)
     prev_ads_df = pd.read_csv(DF_NAME)
-    ads_df = pd.read_csv(ads_df)
-    # ads_df = pd.read_csv(ids_file)
-    # print("Loaded ids from {}".format(ids_file))
-    # lots dictionaries
     lots = []
     print("Scraping ads...")
     for it, row in tqdm(ads_df.iterrows(), total=len(ads_df)):
-        if it % checkpoint == 0 and it > 0:
-            save_ckpt(lots)
         lot = scrape_ad(row['url'])
         lot['url'] = row['url']
         lot['titolo'] = row['titolo']
@@ -123,13 +108,10 @@ def get_ads(ads_df, date, checkpoint=100):
             continue
         else:
             lots.append(lot)
-    save_ckpt(lots)
     ads_df = pd.DataFrame(lots)
-    # ads_df = ads_df.merge(lots_df, right_index=True, left_index=True)
+    ads_df = ads_df.append(prev_ads_df)
     ads_df.to_csv(output_file, index=False)
     ads_df.to_csv(DF_NAME, index=False)
-    os.remove("immobiliare_ads_ckpt.csv")
-    # os.remove(ids_file) REMOVE IDS?
     browser.quit()
 
 
@@ -148,6 +130,5 @@ start_url = 'https://www.immobiliare.it/vendita-case/milano/?pag={}'
 
 if __name__ == "__main__":
     date = dt.today().strftime('%Y-%m-%d')
-    # ids_file = get_ids()
-    ids_file = 'immobiliare_ids_2021-10-10.csv'
-    get_ads(ids_file, date)
+    ads_df = get_ids()
+    get_ads(ads_df, date)
