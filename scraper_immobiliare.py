@@ -40,9 +40,10 @@ def scrape_ad(url):
         description = ""
 
     try:
-        address = browser.find_element_by_xpath("//div[contains(@class, 'im-map__description')]").text
-    except se.NoSuchElementException:
-        address = None
+        items = browser.find_elements_by_xpath("//div[contains(@class, 'im-map__description')]//span//span")
+        address = "Milano, " + items[2].text
+    except (se.NoSuchElementException, IndexError):
+        address = None 
 
     lat = None
     lon = None
