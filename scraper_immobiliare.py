@@ -2,7 +2,7 @@ from datetime import datetime as dt
 import json
 import os
 import pandas as pd
-import re
+import requests
 from selenium import webdriver
 import selenium.common.exceptions as se
 from tqdm import tqdm
@@ -14,6 +14,8 @@ DF_NAME = 'immobiliare_ads.csv'
 
 def is_duplicate(prev_ads_df, lot):
     # future: use address, area, floor
+    if prev_ads_df is None:
+        return False
     match_df = prev_ads_df[(prev_ads_df['titolo'] == lot['titolo']) | (prev_ads_df['descrizione'] == lot['descrizione'])]
     if len(match_df) > 0:
         if match_df.iloc[0]['prezzo'] == lot['prezzo']:
@@ -31,32 +33,41 @@ def list_to_dict(input_list):
 def scrape_ad(url):
     browser.get(url)
     dict_list = []
+
     try:
         description = browser.find_element_by_xpath("//div[contains(@class, 'readAllContainer')]").text
     except se.NoSuchElementException:
         description = ""
+
     try:
-        address = browser.find_elements_by_xpath("//span[contains(@class, 'im-location')]")
-        address = list(set([it.text for it in address]))
-        address = " ".join(address)
+        address = browser.find_element_by_xpath("//div[contains(@class, 'im-map__description')]").text
     except se.NoSuchElementException:
         address = None
-    try:
-        string = browser.find_element_by_xpath("//nd-map").get_attribute('innerHTML')
-        regex = re.compile('{"lat":.+,"lng":.+},')
-        coord = re.search(regex, string)[0][:-1]
-        coord = list(json.loads(coord).values())
-    except se.NoSuchElementException:
-        coord = [None, None]
+
+    lat = None
+    lon = None
+    if address is not None:
+        osm_url = 'https://nominatim.openstreetmap.org/search?q={}&format=json'.format(address)
+        response = requests.request("GET", osm_url)
+        if response.text == '[]':
+            pass
+        else:
+            try:
+                j = json.loads(response.text)[0]
+                lat = j['lat']
+                lon = j['lon']
+            except json.decoder.JSONDecodeError:
+                pass
+
     dict_list.append("descrizione")
     dict_list.append(description)
     dict_list.append("indirizzo")
     dict_list.append(address)
     dict_list.append("lat")
-    dict_list.append(coord[0])
-    dict_list.append("long")
-    dict_list.append(coord[1])
-    # continue from here
+    dict_list.append(lat)
+    dict_list.append("lon")
+    dict_list.append(lon)
+
     desc_list = browser.find_elements_by_tag_name("dl")
     for desc in desc_list:
         children = desc.find_elements_by_xpath(".//*")
@@ -67,9 +78,6 @@ def scrape_ad(url):
 
 
 def get_ids():
-    if not(os.path.exists(DF_NAME)):
-        print('{} does not exist. Quitting.'.format(DF_NAME))
-        return
     ads_df = pd.DataFrame()
     page_id = 1
     print("Retrieving ads list...")
@@ -89,8 +97,11 @@ def get_ids():
 
 
 def get_ads(ads_df, date):
+    if not(os.path.exists(DF_NAME)):
+        prev_ads_df = None
+    else:
+        prev_ads_df = pd.read_csv(DF_NAME)
     output_file = 'immobiliare_ads_{}.csv'.format(date)
-    prev_ads_df = pd.read_csv(DF_NAME)
     lots = []
     print("Scraping ads...")
     for it, row in tqdm(ads_df.iterrows(), total=len(ads_df)):
