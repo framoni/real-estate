@@ -9,8 +9,6 @@ from tqdm import tqdm
 
 # scrape agency and services around the place
 
-DF_NAME = 'immobiliare_ads.csv'
-
 
 def is_duplicate(prev_ads_df, lot):
     # future: use address, area, floor
@@ -19,7 +17,6 @@ def is_duplicate(prev_ads_df, lot):
     match_df = prev_ads_df[(prev_ads_df['titolo'] == lot['titolo']) | (prev_ads_df['descrizione'] == lot['descrizione'])]
     if len(match_df) > 0:
         if match_df.iloc[0]['prezzo'] == lot['prezzo']:
-            print('Found duplicate')
             return True
     else:
         return False
@@ -43,7 +40,7 @@ def scrape_ad(url):
         items = browser.find_elements_by_xpath("//div[contains(@class, 'im-map__description')]//span//span")
         address = "Milano, " + items[2].text
     except (se.NoSuchElementException, IndexError):
-        address = None 
+        address = None
 
     lat = None
     lon = None
@@ -79,6 +76,7 @@ def scrape_ad(url):
 
 
 def get_ids():
+    """Get the ids of the currently available ads."""
     ads_df = pd.DataFrame()
     page_id = 1
     print("Retrieving ads list...")
@@ -90,7 +88,7 @@ def get_ids():
             break
         titles = [elem.get_attribute('title') for elem in links]
         urls = [elem.get_attribute('href') for elem in links]
-        ads_df = ads_df.append(pd.DataFrame({'url': urls, 'titolo': titles}), ignore_index=True)
+        ads_df = ads_df.append(pd.DataFrame({'url': urls, 'titolo': titles}).dropna(), ignore_index=True)
         page_id += 1
         print("\r", end="")
     print("\nFound {} ads".format(len(ads_df)))
@@ -98,28 +96,18 @@ def get_ids():
 
 
 def get_ads(ads_df, date):
-    if not(os.path.exists(DF_NAME)):
-        prev_ads_df = None
-    else:
-        prev_ads_df = pd.read_csv(DF_NAME)
+    """Scrape ads and save the relative dataframe."""
     output_file = 'immobiliare_ads_{}.csv'.format(date)
     lots = []
     print("Scraping ads...")
     for it, row in tqdm(ads_df.iterrows(), total=len(ads_df)):
         lot = scrape_ad(row['url'])
-        if 'prezzo' not in lot.keys():
-            continue
         lot['url'] = row['url']
         lot['titolo'] = row['titolo']
         lot['data'] = date
-        if is_duplicate(prev_ads_df, lot):
-            continue
-        else:
-            lots.append(lot)
+        lots.append(lot)
     ads_df = pd.DataFrame(lots)
-    ads_df = ads_df.append(prev_ads_df)
     ads_df.to_csv(output_file, index=False)
-    ads_df.to_csv(DF_NAME, index=False)
     browser.quit()
 
 
