@@ -89,9 +89,10 @@ ggplot(data=df) +
 # distanza tornano ad essere vecchi, e entro il primo km ci sono più appartamenti nuovi
 # che nella fascia centrale
 
-# plot mappa della città con anno di costruzione...
+# definiamo ora un framework per identificare appartamenti con prezzo più basso rispetto a quanto previsto
+# da un modello: dopo aver modellizzato i dati, cerchiamo gli immobili con i residui più alti
 
-# modello lineare multiplo
+# in questo esempio consideriamo un modello di regressione lineare multipla
 
 model <- lm(prezzo ~ superficie + anno.di.costruzione, data=df)
 summary(model)
@@ -109,7 +110,7 @@ underpriced <- res[res<0]
 underpriced_sort <- sort(underpriced)
 underpriced_sort <- df[names(underpriced_sort),] %>% filter(between(superficie, 60, 80))
 
-# selezionare gli appartamenti in una certa zona di interesse (e.g. Acquabella)
+# selezionamo gli appartamenti in una certa zona di interesse (e.g. Acquabella)
 
 df_ab <- underpriced_sort %>% filter(between(lat, 45.46216, 45.46930)) %>% 
   filter(between(lon, 9.22259, 9.23481))
