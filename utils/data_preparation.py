@@ -9,7 +9,7 @@ Clean the data of ads taken from immobiliare.it
 # IMPORTANT: evaluate the possibility to retrieve missing infos (or predict them)
 
 # load the dataset
-df = pd.read_csv("immobiliare_ads_2023-01-07.csv")
+df = pd.read_csv("../immobiliare_ads_2023-01-07.csv")
 
 # CONTRATTO
 # ignore column "Contratto" as we know that all the scraped ads are about houses for sale

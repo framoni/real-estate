@@ -1,7 +1,7 @@
 library(corrr)
 library(tidyverse)
 
-df <- read.csv("immobiliare_ads_clean_2023-01-07.csv")
+df <- read.csv("../immobiliare_ads_clean_2023-01-07.csv")
 
 # rimuoviamo righe con valori mancanti nelle colonne studiate
 
