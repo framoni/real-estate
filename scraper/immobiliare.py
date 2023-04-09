@@ -6,9 +6,7 @@ from datetime import datetime as dt
 import json
 import os
 import pandas as pd
-import requests
 from selenium import webdriver
-import selenium.common.exceptions as se
 from selenium.webdriver.common.by import By
 from tqdm import tqdm
 
@@ -25,71 +23,73 @@ class Immobiliare:
 
     def _init_browser(self):
         """Initialise a Chrome webdriver for scraping."""
-
-        # user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
         user_agent = 'Chrome/112.0.5615.49'
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
         options.add_argument(f'user-agent={user_agent}')
-
         self._browser = webdriver.Chrome(options=options)
         self._browser.implicitly_wait(5)
         return
 
     @staticmethod
-    def _list_to_dict(input_list):
-        output_dict = {input_list[i].lower(): input_list[i+1] for i in range(0, len(input_list), 2)}
-        return output_dict
+    def _parse_field(dict_, field):
+        try:
+            if type(field) == str:
+                value = dict_[field]
+            else:
+                value = dict_[field[0]][field[1]]
+        except KeyError:
+            return
+        except TypeError:
+            return
+        return value
+
+    def _parse_dict(self, ad_dict):
+        """Parse useful information from the ad's JSON."""
+        lot = {}
+
+        try:
+            ad_dict = ad_dict['props']['pageProps']['detailData']['realEstate']
+        except KeyError:
+            return lot
+
+        for field in ['id', 'createdAt', 'updatedAt', 'contract']:
+            lot[field] = self._parse_field(ad_dict, field)
+
+        lot['price'] = self._parse_field(ad_dict, ['price', 'value'])
+        lot['typology'] = self._parse_field(ad_dict, ['typology', 'name'])
+
+        prop_dict = self._parse_field(ad_dict, ['properties', 0])
+
+        for field in ['availability', 'condition', 'buildingYear',  'rooms', 'bathrooms', 'bedRoomsNumber',
+                      'hasElevators', 'surface', 'floors', 'garage']:
+            lot[field] = self._parse_field(prop_dict, field)
+
+        lot['floor'] = self._parse_field(prop_dict, ['floor', 'abbreviation'])
+
+        lot['category'] = self._parse_field(prop_dict, ['category', 'name'])
+
+        lot['condoExpenses'] = self._parse_field(prop_dict, ['costs', 'condominiumExpenses'])
+        lot['expenses'] = self._parse_field(prop_dict, ['costs', 'expenses'])
+
+        lot['heatingType'] = self._parse_field(prop_dict, ['energy', 'heatingType'])
+        lot['airConditioning'] = self._parse_field(prop_dict, ['energy', 'airConditioning'])
+        lot['class'] = self._parse_field(prop_dict, ['energy', 'class'])
+
+        lot['latitude'] = self._parse_field(prop_dict, ['location', 'latitude'])
+        lot['longitude'] = self._parse_field(prop_dict, ['location', 'longitude'])
+
+        if self._parse_field(prop_dict, 'features') is not None:
+            for feature in prop_dict['features']:
+                lot[feature] = 1
+
+        return lot
 
     def _scrape_ad(self, url):
         """Scrape a single ad."""
-
-        self._browser.get(self._url)
-        dict_list = []
-
-        try:
-            description = self._browser.find_elements(By.XPATH, "//div[contains(@class, 'readAllContainer')]").text
-        except se.NoSuchElementException:
-            description = ""
-
-        try:
-            items = self._browser.find_elements(By.XPATH, "//div[contains(@class, 'im-map__description')]//span//span")
-            address = "Milano, " + items[2].text
-        except (se.NoSuchElementException, IndexError):
-            address = None
-
-        lat = None
-        lon = None
-        if address is not None:
-            osm_url = 'https://nominatim.openstreetmap.org/search?q={}&format=json'.format(address)
-            response = requests.request("GET", osm_url)
-            if response.text == '[]':
-                pass
-            else:
-                try:
-                    j = json.loads(response.text)[0]
-                    lat = j['lat']
-                    lon = j['lon']
-                except json.decoder.JSONDecodeError:
-                    pass
-
-        dict_list.append("descrizione")
-        dict_list.append(description)
-        dict_list.append("indirizzo")
-        dict_list.append(address)
-        dict_list.append("lat")
-        dict_list.append(lat)
-        dict_list.append("lon")
-        dict_list.append(lon)
-
-        desc_list = self._browser.find_elements(By.TAG_NAME, "dl")
-        for desc in desc_list:
-            children = desc.find_elements(By.XPATH, ".//*")
-            for child in children:
-                if child.tag_name in ['dt', 'dd']:
-                    dict_list.append(child.text)
-
-        return self._list_to_dict(dict_list)
+        self._browser.get(url)
+        ad_dict = json.loads(self._browser.find_element(By.ID, "__NEXT_DATA__").get_attribute('innerHTML'))
+        return self._parse_dict(ad_dict)
 
     def _get_ids(self):
         """Get the ids of the currently available ads."""
