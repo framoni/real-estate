@@ -129,7 +129,7 @@ class Immobiliare:
             self._ids = self._get_ids()
         self.ads = self._get_ads()
         filename = 'immobiliare_ads_{}.csv'.format(self.date)
-        self.ads.to_csv(os.path.join(self._path, filename))
+        self.ads.to_csv(os.path.join(self._path, filename), index=False)
         self._browser.quit()
 
 
