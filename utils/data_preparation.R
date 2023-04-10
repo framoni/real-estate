@@ -1,6 +1,7 @@
 # functions to prepare real-estate ads data
 
 library(dplyr)
+library(stringr)
 
 immobiliare_prep <- function(df) {
   #TODO: handle missing values
@@ -39,6 +40,22 @@ immobiliare_prep <- function(df) {
                 df %>% select(longitude:last_col(), -longitude) %>% colnames() # all the columns after "longitude"
                 )
   df[cat_cols] <- lapply(df[cat_cols], as.factor())
+  
+  # format surface, floors, condominium expenses
+  df$surface <- str_extract(df$surface, "\\d+")
+  df$floors <- str_extract(df$floors, "\\d+")
+  df$floors <- str_extract(df$condoExpenses, "\\d+")
+
+  # format floor
+  df$floor[df$floor=='S'] <- '-0.5'
+  df$floor[df$floor=='S3'] <- '-0.5'
+  df$floor[df$floor=='S - T'] <- '0'
+  df$floor[df$floor=='T'] <- '0'
+  df$floor[df$floor=='T - R'] <- '0.5'
+  df$floor[df$floor=='R'] <- '0.5'
+  df$floor[df$floor=='3 - 4'] <- '3.5'
+  df$floor[df$floor=='4 - 5'] <- '4.5'
+  df$floor[df$floor=='8 - 9'] <- '8.5'
   
   return(df)
 }
