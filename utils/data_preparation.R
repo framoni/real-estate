@@ -57,6 +57,18 @@ immobiliare_prep <- function(df) {
   df$floor[df$floor=='4 - 5'] <- '4.5'
   df$floor[df$floor=='8 - 9'] <- '8.5'
   
+  # one-hot encode categorical variables
+  one_hot_cols <- c(
+                    'condition',
+                    'garage',
+                    'heatingType',
+                    'airConditioning'
+  )
+  dummy <- dummyVars(" ~ .", data=df[, one_hot_cols])
+  df_one_hot <- data.frame(predict(dummy, newdata=df[, one_hot_cols]))
+  df <- df %>% select(-all_of(one_hot_cols))
+  df <- cbind(df, df_one_hot)
+  
   return(df)
 }
 
