@@ -15,8 +15,5 @@ and explain the price of any apartment
 
 ## Setup
 
-The scraper uses Selenium with ChromeDriver. 
-So, other than Chrome (obviously), the ChromeDriver matching
-your Chrome version must be installed.
-Download it and place it in the correct folder 
-(e.g. on macOS it's usually `/usr/local/bin`)
+Run `source.sh` to setup the Python virtualenv environment with the needed requirements.
+R is also needed for data exploration and analysis
