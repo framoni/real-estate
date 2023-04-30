@@ -2,16 +2,13 @@
 Implements the class to scrape real-estate ads from Immobiliare.it.
 """
 
+from bs4 import BeautifulSoup
 from datetime import datetime as dt
 import json
 import os
 import pandas as pd
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from tqdm import tqdm
-
-from bs4 import BeautifulSoup
 import requests
+from tqdm import tqdm
 
 
 class Immobiliare:
