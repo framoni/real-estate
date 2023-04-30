@@ -10,26 +10,18 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from tqdm import tqdm
 
+from bs4 import BeautifulSoup
+import requests
+
 
 class Immobiliare:
 
-    def __init__(self, path='data'):
+    def __init__(self, path='../data'):
         self.date = dt.today().strftime('%Y-%m-%d_%H:%M:%S')
-        self._browser = None
         self._ids = None
         self.ads = None
         self._url = 'https://www.immobiliare.it/vendita-case/milano/?pag={}'
         self._path = path
-
-    def _init_browser(self):
-        """Initialise a Chrome webdriver for scraping."""
-        user_agent = 'Chrome/112.0.5615.49'
-        options = webdriver.ChromeOptions()
-        options.add_argument('headless')
-        options.add_argument(f'user-agent={user_agent}')
-        self._browser = webdriver.Chrome(options=options)
-        self._browser.implicitly_wait(5)
-        return
 
     @staticmethod
     def _parse_field(dict_, field):
@@ -87,8 +79,9 @@ class Immobiliare:
 
     def _scrape_ad(self, url):
         """Scrape a single ad."""
-        self._browser.get(url)
-        ad_dict = json.loads(self._browser.find_element(By.ID, "__NEXT_DATA__").get_attribute('innerHTML'))
+        page = requests.get(url)
+        soup = BeautifulSoup(page.content, "html.parser")
+        ad_dict = json.loads(soup.find(id="__NEXT_DATA__").text)
         return self._parse_dict(ad_dict)
 
     def _get_ids(self):
@@ -98,12 +91,13 @@ class Immobiliare:
         print("Retrieving ads list...")
         while True:
             print("Fetching from page {}".format(page_id), end="")
-            self._browser.get(self._url.format(page_id))
-            links = self._browser.find_elements(By.CLASS_NAME, "in-card__title")
+            page = requests.get(self._url.format(page_id))
+            soup = BeautifulSoup(page.content, "html.parser")
+            links = soup.find_all("a", "in-card__title")
             if len(links) == 0:
                 break
-            titles = [elem.get_attribute('title') for elem in links]
-            urls = [elem.get_attribute('href') for elem in links]
+            titles = [it['title'] for it in links]
+            urls = [it['href'] for it in links]
             ids_df = pd.concat([ids_df, pd.DataFrame({'url': urls, 'titolo': titles}).dropna()], ignore_index=True)
             page_id += 1
             print("\r", end="")
@@ -124,13 +118,12 @@ class Immobiliare:
 
     def run(self):
         """Run the scraper."""
-        self._init_browser()
+        # self._init_browser()
         if self._ids is None:
             self._ids = self._get_ids()
         self.ads = self._get_ads()
         filename = 'immobiliare_ads_{}.csv'.format(self.date)
         self.ads.to_csv(os.path.join(self._path, filename), index=False)
-        self._browser.quit()
 
 
 if __name__ == "__main__":
