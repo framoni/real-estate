@@ -13,11 +13,12 @@ from tqdm import tqdm
 
 class Immobiliare:
 
-    def __init__(self, path='../data'):
+    def __init__(self, path='../data', places=['milano']):
         self.date = dt.today().strftime('%Y-%m-%d_%H:%M:%S')
         self._ids = None
         self.ads = None
-        self._url = 'https://www.immobiliare.it/vendita-case/milano/?pag={}'
+        self._places = places
+        self._url = 'https://www.immobiliare.it/vendita-case/{}/?pag={}'
         self._path = path
 
     @staticmethod
@@ -84,21 +85,23 @@ class Immobiliare:
     def _get_ids(self):
         """Get the ids of the currently available ads."""
         ids_df = pd.DataFrame()
-        page_id = 1
         print("Retrieving ads list...")
-        while True:
-            print("Fetching from page {}".format(page_id), end="")
-            page = requests.get(self._url.format(page_id))
-            soup = BeautifulSoup(page.content, "html.parser")
-            links = soup.find_all("a", "in-card__title")
-            if len(links) == 0:
-                break
-            titles = [it['title'] for it in links]
-            urls = [it['href'] for it in links]
-            ids_df = pd.concat([ids_df, pd.DataFrame({'url': urls, 'titolo': titles}).dropna()], ignore_index=True)
-            page_id += 1
-            print("\r", end="")
-        print("\nFound {} ads".format(len(ids_df)))
+        for place in self._places:
+            page_id = 1
+            while True:
+                print("Fetching ads in {} from page {}".format(place, page_id), end="")
+                page = requests.get(self._url.format(place, page_id))
+                soup = BeautifulSoup(page.content, "html.parser")
+                links = soup.find_all("a", "in-card__title")
+                if len(links) == 0:
+                    print('')
+                    break
+                titles = [it['title'] for it in links]
+                urls = [it['href'] for it in links]
+                ids_df = pd.concat([ids_df, pd.DataFrame({'url': urls, 'titolo': titles}).dropna()], ignore_index=True)
+                page_id += 1
+                print("\r", end="")
+        print("Found {} ads".format(len(ids_df)))
         return ids_df
 
     def _get_ads(self):
@@ -119,10 +122,10 @@ class Immobiliare:
         if self._ids is None:
             self._ids = self._get_ids()
         self.ads = self._get_ads()
-        filename = 'immobiliare_ads_{}.csv'.format(self.date)
+        filename = 'immobiliare_ads_{}_{}.csv'.format('_'.join(self._places), self.date)
         self.ads.to_csv(os.path.join(self._path, filename), index=False)
 
 
 if __name__ == "__main__":
-    scraper = Immobiliare()
+    scraper = Immobiliare(places=['Cambiasca', 'Vignone', 'Bee', 'Arizzano', 'Premeno'])
     scraper.run()
